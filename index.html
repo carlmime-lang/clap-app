@@ -1,0 +1,68 @@
+<div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="webcam-container"></div>
+<div id="label-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<script type="text/javascript">
+
+    const URL = "https://teachablemachine.withgoogle.com/models/wMSQnhDhUS/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // ✅ 박수 관련 변수 추가
+    let lastPlayed = 0;
+    const clapSound = new Audio("https://www.soundjay.com/human/clap-01.mp3");
+
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        const flip = true;
+        webcam = new tmImage.Webcam(200, 200, flip);
+        await webcam.setup();
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) {
+            labelContainer.appendChild(document.createElement("div"));
+        }
+    }
+
+    async function loop() {
+        webcam.update();
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+
+        // ✅ 여기부터 주먹 인식 시 박수 재생 코드
+        const now = Date.now();
+
+        prediction.forEach(p => {
+            if (p.className === "주먹" && p.probability > 0.90) {
+                if (now - lastPlayed > 1500) {  // 1.5초 중복 방지
+                    clapSound.play();
+                    lastPlayed = now;
+                }
+            }
+        });
+    }
+
+</script>
